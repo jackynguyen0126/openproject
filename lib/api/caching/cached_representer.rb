@@ -42,6 +42,7 @@ module API
           hash_rep = ::JSON::parse(json_rep)
 
           apply_link_cache_ifs(hash_rep)
+          apply_property_cache_ifs(hash_rep)
 
           ::JSON::dump(hash_rep)
         end
@@ -60,6 +61,20 @@ module API
             displayed = instance_exec(&condition)
 
             hash_rep['_links'].delete(name.to_s) unless displayed
+          end
+        end
+
+        def apply_property_cache_ifs(hash_rep)
+          attrs = representable_attrs
+                  .select { |name, config| config[:cache_if] }
+
+          attrs.each do |name, config|
+            condition = config[:cache_if]
+            hash_name = (config[:as] && instance_exec(&config[:as])) || name
+
+            displayed = instance_exec(&condition)
+
+            hash_rep.delete(hash_name.to_s) unless displayed
           end
         end
       end

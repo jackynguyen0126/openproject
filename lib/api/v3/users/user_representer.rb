@@ -35,6 +35,7 @@ module API
   module V3
     module Users
       class UserRepresenter < ::API::Decorators::Single
+        include ::API::Caching::CachedRepresenter
         include AvatarHelper
 
         def self.create(user, current_user:)
@@ -54,8 +55,8 @@ module API
           }
         end
 
-        link :updateImmediately do
-          next unless current_user_is_admin
+        link :updateImmediately,
+             cache_if: -> { current_user_is_admin } do
           {
             href: api_v3_paths.user(represented.id),
             title: "Update #{represented.login}",
@@ -63,8 +64,9 @@ module API
           }
         end
 
-        link :lock do
-          next unless current_user_is_admin && represented.lockable?
+        link :lock,
+             cache_if: -> { current_user_is_admin } do
+          next unless represented.lockable?
           {
             href: api_v3_paths.user_lock(represented.id),
             title: "Set lock on #{represented.login}",
@@ -72,8 +74,9 @@ module API
           }
         end
 
-        link :unlock do
-          next unless current_user_is_admin && represented.activatable?
+        link :unlock,
+             cache_if: -> { current_user_is_admin } do
+          next unless represented.activatable?
           {
             href: api_v3_paths.user_lock(represented.id),
             title: "Remove lock on #{represented.login}",
@@ -81,8 +84,8 @@ module API
           }
         end
 
-        link :delete do
-          next unless current_user_can_delete_represented?
+        link :delete,
+             cache_if: -> { current_user_can_delete_represented? } do
           {
             href: api_v3_paths.user(represented.id),
             title: "Delete #{represented.login}",
@@ -90,14 +93,26 @@ module API
           }
         end
 
+        link :auth_source,
+             cache_if: -> { current_user_is_admin } do
+          next unless represented.is_a?(User) && represented.auth_source
+
+          {
+            href: "/api/v3/auth_sources/#{represented.auth_source_id}",
+            title: represented.auth_source.name
+          }
+        end
+
         property :id,
                  render_nil: true
+
         property :login,
                  exec_context: :decorator,
                  render_nil: false,
                  getter: ->(*) { represented.login },
                  setter: ->(fragment:, represented:, **) { represented.login = fragment },
-                 if: ->(*) { current_user_is_admin_or_self }
+                 cache_if: -> { current_user_is_admin_or_self }
+
         property :admin,
                  exec_context: :decorator,
                  render_nil: false,
@@ -105,7 +120,8 @@ module API
                    represented.admin?
                  },
                  setter: ->(fragment:, represented:, **) { represented.admin = fragment },
-                 if: ->(*) { current_user_is_admin }
+                 cache_if: -> { current_user_is_admin }
+
         property :subtype,
                  getter: ->(*) { type },
                  render_nil: true
@@ -114,15 +130,18 @@ module API
                  getter: ->(*) { represented.firstname },
                  setter: ->(fragment:, represented:, **) { represented.firstname = fragment },
                  render_nil: false,
-                 if: ->(*) { current_user_is_admin_or_self }
+                 cache_if: -> { current_user_is_admin_or_self }
+
         property :lastName,
                  exec_context: :decorator,
                  getter: ->(*) { represented.lastname },
                  setter: ->(fragment:, represented:, **) { represented.lastname = fragment },
                  render_nil: false,
-                 if: ->(*) { current_user_is_admin_or_self }
+                 cache_if: -> { current_user_is_admin_or_self }
+
         property :name,
                  render_nil: true
+
         property :mail,
                  as: :email,
                  render_nil: true,
@@ -136,31 +155,25 @@ module API
                  exec_context: :decorator,
                  getter: ->(*) { avatar_url(represented) },
                  render_nil: true
+
         property :created_on,
                  exec_context: :decorator,
                  as: 'createdAt',
                  getter: ->(*) { datetime_formatter.format_datetime(represented.created_on) },
                  render_nil: false,
-                 if: ->(*) { current_user_is_admin_or_self }
+                 cache_if: -> { current_user_is_admin_or_self }
+
         property :updated_on,
                  exec_context: :decorator,
                  as: 'updatedAt',
                  getter: ->(*) { datetime_formatter.format_datetime(represented.updated_on) },
                  render_nil: false,
-                 if: ->(*) { current_user_is_admin_or_self }
+                 cache_if: -> { current_user_is_admin_or_self }
+
         property :status,
                  getter: ->(*) { status_name },
                  setter: ->(fragment:, represented:, **) { represented.status = User::STATUSES[fragment.to_sym] },
                  render_nil: true
-
-        link :auth_source do
-          next unless represented.is_a?(User) && represented.auth_source && current_user.admin?
-
-          {
-            href: "/api/v3/auth_sources/#{represented.auth_source_id}",
-            title: represented.auth_source.name
-          }
-        end
 
         property :identity_url,
                  exec_context: :decorator,
@@ -168,7 +181,8 @@ module API
                  getter: ->(*) { represented.identity_url },
                  setter: ->(fragment:, represented:, **) { represented.identity_url = fragment },
                  render_nil: true,
-                 if: ->(*) { represented.is_a?(User) && current_user_is_admin_or_self }
+                 if: ->(*) { represented.is_a?(User) },
+                 cache_if: -> { current_user_is_admin_or_self }
 
         # Write-only properties
 

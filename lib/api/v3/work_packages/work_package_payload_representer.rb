@@ -37,6 +37,12 @@ module API
         def writeable_attributes
           super + ["date"]
         end
+
+        private
+
+        def no_caching?
+          true
+        end
       end
     end
   end

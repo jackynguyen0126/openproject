@@ -46,6 +46,11 @@ module API
           super(user, current_user: current_user)
         end
 
+        #def to_json(*args)
+        #  puts represented.cache_key
+        #  super
+        #end
+
         self_link
 
         link :showUser do

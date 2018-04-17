@@ -31,20 +31,33 @@ require 'spec_helper'
 describe ::API::V3::Attachments::AttachmentRepresenter do
   include API::V3::Utilities::PathHelper
 
-  let(:current_user) {
-    FactoryGirl.create(:user, member_in_project: project, member_through_role: role)
-  }
-  let(:project) { FactoryGirl.create(:project) }
-  let(:role) { FactoryGirl.create(:role, permissions: permissions) }
-  let(:all_permissions) { [:view_work_packages, :edit_work_packages] }
+  let(:current_user) do
+    FactoryGirl.build_stubbed(:user)
+  end
+  let(:all_permissions) { %i[view_work_packages edit_work_packages] }
   let(:permissions) { all_permissions }
 
-  let(:container) { FactoryGirl.create(:work_package, project: project) }
-
-  let(:attachment) { FactoryGirl.create(:attachment, container: container) }
-  let(:representer) {
+  let(:container) { FactoryGirl.build_stubbed(:stubbed_work_package) }
+  let(:attachment) do
+    FactoryGirl.build_stubbed(:attachment,
+                              container: container,
+                              created_on: DateTime.now) do |attachment|
+      allow(attachment)
+       .to receive(:filename)
+       .and_return('some_file_of_mine.txt')
+    end
+  end
+  
+  let(:representer) do
     ::API::V3::Attachments::AttachmentRepresenter.new(attachment, current_user: current_user)
-  }
+  end
+
+  before do
+    allow(current_user)
+      .to receive(:allowed_to?) do |permission|
+      permissions.include? permission
+    end
+  end
 
   subject { representer.to_json }
 

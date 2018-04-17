@@ -118,9 +118,7 @@ module API
 
                 with_etag! represented_schema.cache_key
 
-                cache(represented_schema.cache_key) do
-                  represented_schema
-                end
+                represented_schema
               end
             end
 

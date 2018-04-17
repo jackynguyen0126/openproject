@@ -35,6 +35,8 @@ module API
     module WorkPackages
       module Schema
         class WorkPackageSchemaRepresenter < ::API::Decorators::SchemaRepresenter
+          include API::Caching::CachedRepresenter
+
           class << self
             def represented_class
               WorkPackage
@@ -89,13 +91,18 @@ module API
           end
 
           def cache_key
-            custom_fields = represented.project.all_work_package_custom_fields
+            parts = ['api/v3/work_packages/schemas',
+                     project_type_cache_key,
+                     I18n.locale,
+                     type_cache_key,
+                     custom_field_cache_key]
 
-            OpenProject::Cache::CacheKey.key('api/v3/work_packages/schemas',
-                                             "#{represented.project.id}-#{represented.type.id}",
-                                             I18n.locale,
-                                             represented.type.updated_at,
-                                             OpenProject::Cache::CacheKey.expand(custom_fields))
+            OpenProject::Cache::CacheKey.key(parts)
+          end
+
+          # TODO: refactor to properly harmonize with API::Caching::CachedRepresenter
+          def json_cache_key
+            cache_key
           end
 
           link :baseSchema do
@@ -275,6 +282,28 @@ module API
             end
 
             @attribute_group_map[key]
+          end
+
+          private
+
+          def custom_field_cache_key
+            custom_fields = represented.project ? represented.project.all_work_package_custom_fields : []
+            OpenProject::Cache::CacheKey.expand(custom_fields)
+          end
+
+          def project_type_cache_key
+            project_cache_key = represented.project ? represented.project.id : nil
+            type_cache_key = represented.type ? represented.type.id : nil
+
+            "#{project_cache_key}-#{type_cache_key}"
+          end
+
+          def type_cache_key
+            represented.type.try(:updated_at)
+          end
+
+          def no_caching?
+            represented.no_caching?
           end
         end
       end

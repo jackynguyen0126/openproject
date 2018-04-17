@@ -35,6 +35,8 @@ module API
 
       included do
         def to_json(*args)
+          return super if no_caching?
+
           json_rep = OpenProject::Cache.fetch(represented) do
             super
           end
@@ -76,6 +78,10 @@ module API
 
             hash_rep.delete(hash_name.to_s) unless displayed
           end
+        end
+
+        def no_caching?
+          false
         end
       end
 
